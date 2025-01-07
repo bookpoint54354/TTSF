@@ -13,11 +13,6 @@ from TTS.demos.xtts_ft_demo.utils.formatter import format_audio_list
 from TTS.demos.xtts_ft_demo.utils.gpt_train import train_gpt
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
-from huggingface_hub import Repository
-
-
-hf_repo_name = "x1"
-hf_username = "Shanos76"
 
 
 def clear_gpu_cache():
@@ -329,16 +324,8 @@ if __name__ == "__main__":
 
                 ft_xtts_checkpoint = os.path.join(exp_path, "best_model.pth")
                 print("Model training done!")
-
-                # Pushing model to Hugging Face
-                print(" > Pushing model to Hugging Face...")
-                hf_repo_url = f"https://huggingface.co/{hf_username}/{hf_repo_name}"
-                repo = Repository(local_dir=exp_path, clone_from=hf_repo_url)
-                repo.push_to_hub(commit_message="Add fine-tuned XTTS model")
-
                 clear_gpu_cache()
                 return "Model training done!", config_path, vocab_file, ft_xtts_checkpoint, speaker_wav
-
 
         with gr.Tab("3 - Inference"):
             with gr.Row():
