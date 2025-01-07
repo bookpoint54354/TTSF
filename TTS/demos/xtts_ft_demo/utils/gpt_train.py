@@ -156,9 +156,10 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         train_samples=train_samples,
         eval_samples=eval_samples,
     )
+    
     trainer.fit()
 
-    # Push the output checkpoints to Hugging Face repository
+    # After each epoch or save step, push the checkpoint to Hugging Face
     print(" > Pushing checkpoints to Hugging Face repository...")
     repo.push_to_hub(commit_message="Add fine-tuned checkpoints")
 
