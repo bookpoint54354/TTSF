@@ -287,57 +287,57 @@ if __name__ == "__main__":
             demo.load(read_logs, None, logs_tts_train, every=1)
             train_btn = gr.Button(value="Step 2 - Run the training")
 
-def train_model(
-    language, train_csv, eval_csv, num_epochs, batch_size, grad_acumm, output_path, max_audio_length
-):
-    clear_gpu_cache()
-    if not train_csv or not eval_csv:
-        return (
-            "You need to run the data processing step or manually set `Train CSV` and `Eval CSV` fields !",
-            "",
-            "",
-            "",
-            "",
-        )
-    try:
-        # convert seconds to waveform frames
-        max_audio_length = int(max_audio_length * 22050)
-        config_path, original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
-            language,
-            num_epochs,
-            batch_size,
-            grad_acumm,
-            train_csv,
-            eval_csv,
-            output_path=output_path,
-            max_audio_length=max_audio_length,
-        )
-    except:
-        traceback.print_exc()
-        error = traceback.format_exc()
-        return (
-            f"The training was interrupted due an error !! Please check the console to check the full error message! \n Error summary: {error}",
-            "",
-            "",
-            "",
-            "",
-        )
+            def train_model(
+                language, train_csv, eval_csv, num_epochs, batch_size, grad_acumm, output_path, max_audio_length
+            ):
+                clear_gpu_cache()
+                if not train_csv or not eval_csv:
+                    return (
+                        "You need to run the data processing step or manually set `Train CSV` and `Eval CSV` fields !",
+                        "",
+                        "",
+                        "",
+                        "",
+                    )
+                try:
+                    # convert seconds to waveform frames
+                    max_audio_length = int(max_audio_length * 22050)
+                    config_path, original_xtts_checkpoint, vocab_file, exp_path, speaker_wav = train_gpt(
+                        language,
+                        num_epochs,
+                        batch_size,
+                        grad_acumm,
+                        train_csv,
+                        eval_csv,
+                        output_path=output_path,
+                        max_audio_length=max_audio_length,
+                    )
+                except:
+                    traceback.print_exc()
+                    error = traceback.format_exc()
+                    return (
+                        f"The training was interrupted due an error !! Please check the console to check the full error message! \n Error summary: {error}",
+                        "",
+                        "",
+                        "",
+                        "",
+                    )
 
-    # copy original files to avoid parameters changes issues
-    os.system(f"cp {config_path} {exp_path}")
-    os.system(f"cp {vocab_file} {exp_path}")
+                # copy original files to avoid parameters changes issues
+                os.system(f"cp {config_path} {exp_path}")
+                os.system(f"cp {vocab_file} {exp_path}")
 
-    ft_xtts_checkpoint = os.path.join(exp_path, "best_model.pth")
-    print("Model training done!")
+                ft_xtts_checkpoint = os.path.join(exp_path, "best_model.pth")
+                print("Model training done!")
 
-    # Pushing model to Hugging Face
-    print(" > Pushing model to Hugging Face...")
-    hf_repo_url = f"https://huggingface.co/{hf_username}/{hf_repo_name}"
-    repo = Repository(local_dir=exp_path, clone_from=hf_repo_url)
-    repo.push_to_hub(commit_message="Add fine-tuned XTTS model")
+                # Pushing model to Hugging Face
+                print(" > Pushing model to Hugging Face...")
+                hf_repo_url = f"https://huggingface.co/{hf_username}/{hf_repo_name}"
+                repo = Repository(local_dir=exp_path, clone_from=hf_repo_url)
+                repo.push_to_hub(commit_message="Add fine-tuned XTTS model")
 
-    clear_gpu_cache()
-    return "Model training done!", config_path, vocab_file, ft_xtts_checkpoint, speaker_wav
+                clear_gpu_cache()
+                return "Model training done!", config_path, vocab_file, ft_xtts_checkpoint, speaker_wav
 
 
         with gr.Tab("3 - Inference"):
