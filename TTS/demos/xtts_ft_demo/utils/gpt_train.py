@@ -1,36 +1,32 @@
 import gc
 import os
-from huggingface_hub import Repository
 
 from trainer import Trainer, TrainerArgs
+
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
 from TTS.tts.models.xtts import XttsAudioConfig
 from TTS.utils.manage import ModelManager
 
-hf_repo_name = "x1"
-hf_username = "Shanos76"
 
-def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv, hf_username, hf_repo_name, max_audio_length=255995):
-    # Logging parameters
+def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv, output_path, max_audio_length=255995):
+    #  Logging parameters
     RUN_NAME = "GPT_XTTS_FT"
     PROJECT_NAME = "XTTS_trainer"
     DASHBOARD_LOGGER = "tensorboard"
     LOGGER_URI = None
 
-    # Set up Hugging Face repository
-    HF_REPO_URL = f"https://huggingface.co/{hf_username}/{hf_repo_name}"
-    repo = Repository(local_dir="hf_repo", clone_from=HF_REPO_URL)
-    OUT_PATH = os.path.join(repo.local_dir, "output")
+    # Set here the path that the checkpoints will be saved. Default: ./run/training/
+    OUT_PATH = os.path.join(output_path, "run", "training")
 
     # Training Parameters
     OPTIMIZER_WD_ONLY_ON_WEIGHTS = True  # for multi-gpu training please make it False
-    START_WITH_EVAL = False  # if True it will start with evaluation
+    START_WITH_EVAL = False  # if True it will star with evaluation
     BATCH_SIZE = batch_size  # set here the batch size
     GRAD_ACUMM_STEPS = grad_acumm  # set here the grad accumulation steps
 
-    # Define the dataset for fine-tuning
+    # Define here the dataset that you want to use for the fine-tuning on.
     config_dataset = BaseDatasetConfig(
         formatter="coqui",
         dataset_name="ft_dataset",
@@ -40,10 +36,10 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         language=language,
     )
 
-    # Add the dataset config
+    # Add here the configs of the datasets
     DATASETS_CONFIG_LIST = [config_dataset]
 
-    # Path for XTTS v2.0.1 files
+    # Define the path where XTTS v2.0.1 files will be downloaded
     CHECKPOINTS_OUT_PATH = os.path.join(OUT_PATH, "XTTS_v2.0_original_model_files/")
     os.makedirs(CHECKPOINTS_OUT_PATH, exist_ok=True)
 
@@ -51,35 +47,35 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
     DVAE_CHECKPOINT_LINK = "https://huggingface.co/coqui/XTTS-v2/resolve/main/dvae.pth"
     MEL_NORM_LINK = "https://huggingface.co/coqui/XTTS-v2/resolve/main/mel_stats.pth"
 
-    # Set the paths to the downloaded files
+    # Set the path to the downloaded files
     DVAE_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(DVAE_CHECKPOINT_LINK))
     MEL_NORM_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(MEL_NORM_LINK))
 
-    # Download DVAE files if needed
+    # download DVAE files if needed
     if not os.path.isfile(DVAE_CHECKPOINT) or not os.path.isfile(MEL_NORM_FILE):
         print(" > Downloading DVAE files!")
         ModelManager._download_model_files(
             [MEL_NORM_LINK, DVAE_CHECKPOINT_LINK], CHECKPOINTS_OUT_PATH, progress_bar=True
         )
 
-    # XTTS v2.0 files
+    # Download XTTS v2.0 checkpoint if needed
     TOKENIZER_FILE_LINK = "https://huggingface.co/coqui/XTTS-v2/resolve/main/vocab.json"
     XTTS_CHECKPOINT_LINK = "https://huggingface.co/coqui/XTTS-v2/resolve/main/model.pth"
     XTTS_CONFIG_LINK = "https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json"
 
-    # XTTS transfer learning parameters
-    TOKENIZER_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(TOKENIZER_FILE_LINK))  # vocab.json
-    XTTS_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CHECKPOINT_LINK))  # model.pth
-    XTTS_CONFIG_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CONFIG_LINK))  # config.json
+    # XTTS transfer learning parameters: You we need to provide the paths of XTTS model checkpoint that you want to do the fine tuning.
+    TOKENIZER_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(TOKENIZER_FILE_LINK))  # vocab.json file
+    XTTS_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CHECKPOINT_LINK))  # model.pth file
+    XTTS_CONFIG_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CONFIG_LINK))  # config.json file
 
-    # Download XTTS v2.0 files if needed
+    # download XTTS v2.0 files if needed
     if not os.path.isfile(TOKENIZER_FILE) or not os.path.isfile(XTTS_CHECKPOINT):
         print(" > Downloading XTTS v2.0 files!")
         ModelManager._download_model_files(
             [TOKENIZER_FILE_LINK, XTTS_CHECKPOINT_LINK, XTTS_CONFIG_LINK], CHECKPOINTS_OUT_PATH, progress_bar=True
         )
 
-    # Initialize model arguments
+    # init args and config
     model_args = GPTArgs(
         max_conditioning_length=132300,  # 6 secs
         min_conditioning_length=66150,  # 3 secs
@@ -88,7 +84,7 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         max_text_length=200,
         mel_norm_file=MEL_NORM_FILE,
         dvae_checkpoint=DVAE_CHECKPOINT,
-        xtts_checkpoint=XTTS_CHECKPOINT,  # checkpoint path of the model for fine-tuning
+        xtts_checkpoint=XTTS_CHECKPOINT,  # checkpoint path of the model that you want to fine-tune
         tokenizer_file=TOKENIZER_FILE,
         gpt_num_audio_tokens=1026,
         gpt_start_audio_token=1024,
@@ -96,18 +92,18 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         gpt_use_masking_gt_prompt_approach=True,
         gpt_use_perceiver_resampler=True,
     )
-
-    # Define audio config
+    # define audio config
     audio_config = XttsAudioConfig(sample_rate=22050, dvae_sample_rate=22050, output_sample_rate=24000)
-
-    # Training parameters config
+    # training parameters config
     config = GPTTrainerConfig(
         epochs=num_epochs,
         output_path=OUT_PATH,
         model_args=model_args,
         run_name=RUN_NAME,
         project_name=PROJECT_NAME,
-        run_description="GPT XTTS training",
+        run_description="""
+            GPT XTTS training
+            """,
         dashboard_logger=DASHBOARD_LOGGER,
         logger_uri=LOGGER_URI,
         audio=audio_config,
@@ -122,19 +118,23 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         save_step=4000,
         save_n_checkpoints=1,
         save_checkpoints=True,
+        # target_loss="loss",
+        print_eval=False,
+        # Optimizer values like tortoise, pytorch implementation with modifications to not apply WD to non-weight parameters.
         optimizer="AdamW",
         optimizer_wd_only_on_weights=OPTIMIZER_WD_ONLY_ON_WEIGHTS,
         optimizer_params={"betas": [0.9, 0.96], "eps": 1e-8, "weight_decay": 1e-2},
-        lr=5e-06,
+        lr=5e-06,  # learning rate
         lr_scheduler="MultiStepLR",
+        # it was adjusted accordly for the new step scheme
         lr_scheduler_params={"milestones": [50000 * 18, 150000 * 18, 300000 * 18], "gamma": 0.5, "last_epoch": -1},
         test_sentences=[],
     )
 
-    # Initialize the model from config
+    # init the model from config
     model = GPTTrainer.init_from_config(config)
 
-    # Load training samples
+    # load training samples
     train_samples, eval_samples = load_tts_samples(
         DATASETS_CONFIG_LIST,
         eval_split=True,
@@ -142,10 +142,10 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         eval_split_size=config.eval_split_size,
     )
 
-    # Initialize the trainer and start training
+    # init the trainer and 🚀
     trainer = Trainer(
         TrainerArgs(
-            restore_path=None,  # XTTS checkpoint is restored via xtts_checkpoint key
+            restore_path=None,  # xtts checkpoint is restored via xtts_checkpoint key so no need of restore it using Trainer restore_path parameter
             skip_train_epoch=False,
             start_with_eval=START_WITH_EVAL,
             grad_accum_steps=GRAD_ACUMM_STEPS,
@@ -156,15 +156,17 @@ def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv,
         train_samples=train_samples,
         eval_samples=eval_samples,
     )
-    
     trainer.fit()
 
-    # After each epoch or save step, push the checkpoint to Hugging Face
-    print(" > Pushing checkpoints to Hugging Face repository...")
-    repo.push_to_hub(commit_message="Add fine-tuned checkpoints")
+    # get the longest text audio file to use as speaker reference
+    samples_len = [len(item["text"].split(" ")) for item in train_samples]
+    longest_text_idx = samples_len.index(max(samples_len))
+    speaker_ref = train_samples[longest_text_idx]["audio_file"]
 
-    # Deallocate VRAM and RAM
+    trainer_out_path = trainer.output_path
+
+    # deallocate VRAM and RAM
     del model, trainer, train_samples, eval_samples
     gc.collect()
 
-    return XTTS_CONFIG_FILE, XTTS_CHECKPOINT, TOKENIZER_FILE, OUT_PATH
+    return XTTS_CONFIG_FILE, XTTS_CHECKPOINT, TOKENIZER_FILE, trainer_out_path, speaker_ref
