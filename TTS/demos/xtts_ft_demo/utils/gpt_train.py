@@ -9,6 +9,8 @@ from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrai
 from TTS.tts.models.xtts import XttsAudioConfig
 from TTS.utils.manage import ModelManager
 
+hf_repo_name = "x1"
+hf_username = "Shanos76"
 
 def train_gpt(language, num_epochs, batch_size, grad_acumm, train_csv, eval_csv, hf_username, hf_repo_name, max_audio_length=255995):
     # Logging parameters
