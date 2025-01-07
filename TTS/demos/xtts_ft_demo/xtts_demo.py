@@ -23,6 +23,29 @@ def clear_gpu_cache():
 
 XTTS_MODEL = None
 
+import os
+from huggingface_hub import Repository, HfApi
+
+def set_hf_repo_as_out_path(out_path):
+    # Assume out_path is the Hugging Face repo name or repo URL
+    # e.g., 'username/repo_name' or 'https://huggingface.co/username/repo_name'
+    if out_path.startswith("https://huggingface.co/"):
+        repo_name = out_path.split("https://huggingface.co/")[1]
+    else:
+        repo_name = out_path
+
+    # Initialize HF API and repository object
+    hf_api = HfApi()
+    hf_repo = Repository(local_dir="/tmp/xtts_ft", clone_from=repo_name)
+
+    return hf_repo
+
+def save_model_to_hf_repo(hf_repo, model, model_name="best_model.pth"):
+    # Save model to the specified Hugging Face repository
+    model_path = os.path.join(hf_repo.local_dir, model_name)
+    torch.save(model.state_dict(), model_path)
+    hf_repo.push_to_hub(commit_message="Add fine-tuned model checkpoint")
+
 
 def load_model(xtts_checkpoint, xtts_config, xtts_vocab):
     global XTTS_MODEL
@@ -126,9 +149,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--out_path",
         type=str,
-        help="Output path (where data and checkpoints will be saved) Default: /tmp/xtts_ft/",
-        default="/tmp/xtts_ft/",
+        help="Output path (where data and checkpoints will be saved, e.g., Hugging Face repo name or URL). Default: /tmp/xtts_ft/",
+        default="Shanos76/x1",  # Replace with your Hugging Face repo name
     )
+
+    args = parser.parse_args()
+
+    hf_repo = set_hf_repo_as_out_path(args.out_path)
+    
+    # When saving the model, use:
+    # save_model_to_hf_repo(hf_repo, XTTS_MODEL)
+
 
     parser.add_argument(
         "--num_epochs",
